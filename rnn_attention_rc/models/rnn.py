@@ -2,7 +2,8 @@
 # TODO: Your code here.
 import torch.nn as nn
 
-
+# Name: Pranav Varanasi
+# UT EID: ptv247
 class RNN(nn.Module):
     def __init__(self, embedding_matrix, hidden_size,
                  dropout):
