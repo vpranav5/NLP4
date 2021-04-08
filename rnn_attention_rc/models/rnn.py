@@ -169,7 +169,7 @@ class RNN(nn.Module):
         # TODO: Your code here.
         # packing optimizes out the padding, removes out padding words from passages, look at stack overflow
         # packed_passage is a pytorch object which nests sequences, converts to 2-d matrix
-        packed_passage = pack_padded_sequence(sorted_passage, passageLengths.tolist(), batch_first = True)
+        packed_passage = pack_padded_sequence(sorted_passage, passageLengths, batch_first = True)
 
         # 2.3. Encode the packed passages with the RNN.
         # TODO: Your code here. (input), feeding in optimized passages thru the network nodes
