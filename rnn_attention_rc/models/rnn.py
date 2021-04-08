@@ -1,5 +1,6 @@
 # This list of imports is likely incomplete --- add anything you need.
 # TODO: Your code here.
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
@@ -141,13 +142,13 @@ class RNN(nn.Module):
         passageLengths = passage_mask.sum(dim=1)
         # [2, 3, 5, 6, 7]
         #passageLengths = torch.LongTensor(passageWords)
-        passageLenTensor = torch.LongTensor(passageLengths)
+        passageLenTensor = torch.LongTensor(np.asarray(passageLengths))
         # Make a LongTensor with the length (number non-padding words
         # in) each question.
         # Shape: ?
         # TODO: Your code here.
         questionLengths = question_mask.sum(dim=1)
-        questionLenTensor = torch.LongTensor(questionLengths)
+        questionLenTensor = torch.LongTensor(np.asarray(questionLengths))
         #questionLengths = torch.LongTensor(questionWords)
 
         # Part 1: Embed the passages and the questions.
@@ -231,7 +232,7 @@ class RNN(nn.Module):
         # Hint: Be careful how you treat padding.
         # Shape: ?
         # TODO: Your code here.
-        questionRepresent = (torch.sum(questionHidden, dim = 1) / questionLenTensor.unsqueeze(1))
+        questionRepresent = (torch.sum(questionHidden, dim = 1) / questionLengths.unsqueeze(1))
 
         # Part 4: Combine the passage and question representations by
         # concatenating the passage and question representations with
@@ -243,7 +244,7 @@ class RNN(nn.Module):
         # TODO: Your code here.
 
         tiled_encoded_q = questionRepresent.unsqueeze(dim=1).expand_as(
-            unsorted_passage)
+            embedded_passage)
 
         # 4.2. Concatenate to make the combined representation.
         # Hint: Use torch.cat
@@ -251,8 +252,8 @@ class RNN(nn.Module):
         # TODO: Your code here.
 
         # Shape: (batch_size, max_passage_size, 6 * embedding_dim)
-        combined_x_q = torch.cat([unsorted_passage, tiled_encoded_q,
-                                  unsorted_passage * tiled_encoded_q], dim=-1)
+        combined_x_q = torch.cat([embedded_passage, tiled_encoded_q,
+                                  embedded_passage * tiled_encoded_q], dim=-1)
 
         # Part 5: Compute logits for answer start index.
 
