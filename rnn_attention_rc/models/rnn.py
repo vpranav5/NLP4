@@ -140,15 +140,12 @@ class RNN(nn.Module):
         # Shape: ?
         # TODO: Your code here.
         passageLengths = passage_mask.sum(dim=1).long()
-        # [2, 3, 5, 6, 7]
-        #passageLengths = torch.LongTensor(passageWords)
+
         # Make a LongTensor with the length (number non-padding words
         # in) each question.
         # Shape: ?
         # TODO: Your code here.
         questionLengths = question_mask.sum(dim=1).long()
-        #questionLenTensor = torch.LongTensor(np.asarray(questionLengths))
-        #questionLengths = torch.LongTensor(questionWords)
 
         # Part 1: Embed the passages and the questions.
         # 1.1. Embed the passage.
@@ -172,7 +169,7 @@ class RNN(nn.Module):
         # TODO: Your code here.
         # packing optimizes out the padding, removes out padding words from passages, look at stack overflow
         # packed_passage is a pytorch object which nests sequences, converts to 2-d matrix
-        packed_passage = pack_padded_sequence(sorted_passage, passageLengths, batch_first = True)
+        packed_passage = pack_padded_sequence(sorted_passage, passageLengths.tolist(), batch_first = True)
 
         # 2.3. Encode the packed passages with the RNN.
         # TODO: Your code here. (input), feeding in optimized passages thru the network nodes
@@ -205,7 +202,7 @@ class RNN(nn.Module):
         # 3.2. Pack the questions with pack_padded_sequence.
         # Hint: Make sure you have the proper value for batch_first.
         # TODO: Your code here.
-        packed_question = pack_padded_sequence(sorted_question, questionLengths, batch_first = True)
+        packed_question = pack_padded_sequence(sorted_question, questionLengths.tolist(), batch_first = True)
 
         # 3.3. Encode the questions with the RNN.
         # TODO: Your code here.
