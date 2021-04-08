@@ -1,5 +1,6 @@
 # This list of imports is likely incomplete --- add anything you need.
 # TODO: Your code here.
+import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from allennlp.nn.util import sort_batch_by_length
