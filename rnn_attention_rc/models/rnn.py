@@ -50,20 +50,23 @@ class RNN(nn.Module):
 
         # Make a GRU to encode the passage. Note that batch_first=True.
         # TODO: Your code here.
-        self.gruPassage = nn.GRU(self.embedding_dim, hidden_size, batch_first = True, bidirectional = True, dropout = dropout)
+        #self.gruPassage = nn.GRU(self.embedding_dim, hidden_size, batch_first = True, bidirectional = True, dropout = dropout)
+        self.gruPassage = nn.GRU(self.embedding_dim, hidden_size, batch_first = True, dropout = dropout)
 
         # Make a GRU to encode the question. Note that batch_first=True.
         # TODO: Your code here.
-        self.gruQuestion = nn.GRU(self.embedding_dim, hidden_size, batch_first = True, bidirectional = True, dropout = dropout)
+        #self.gruQuestion = nn.GRU(self.embedding_dim, hidden_size, batch_first = True, bidirectional = True, dropout = dropout)
+
+        self.gruQuestion = nn.GRU(self.embedding_dim, hidden_size, batch_first = True, dropout = dropout)
 
         # Affine transform for predicting start index.
         # TODO: Your code here.
         # Change shape here based on bidrectional gru, 6 * hidden size
-        self.start_output_projection = nn.Linear(6 * hidden_size, 1)
+        self.start_output_projection = nn.Linear(3 * self.embedding_dim, 1)
 
         # Affine transform for predicting end index.
         # TODO: Your code here.
-        self.end_output_projection = nn.Linear(6 * hidden_size, 1)
+        self.end_output_projection = nn.Linear(3 * self.embedding_dim, 1)
 
         # Dropout layer
         # TODO: Your code here.
@@ -135,16 +138,16 @@ class RNN(nn.Module):
         # in) each passage.
         # Shape: ?
         # TODO: Your code here.
-        passageWords = passage_mask.sum(dim=1)
+        passageLengths = passage_mask.sum(dim=1)
         # [2, 3, 5, 6, 7]
-        passageLengths = torch.LongTensor(passageWords)
+        #passageLengths = torch.LongTensor(passageWords)
 
         # Make a LongTensor with the length (number non-padding words
         # in) each question.
         # Shape: ?
         # TODO: Your code here.
-        questionWords = question_mask.sum(dim=1)
-        questionLengths = torch.LongTensor(questionWords)
+        questionLengths = question_mask.sum(dim=1)
+        #questionLengths = torch.LongTensor(questionWords)
 
         # Part 1: Embed the passages and the questions.
         # 1.1. Embed the passage.
@@ -227,7 +230,7 @@ class RNN(nn.Module):
         # Hint: Be careful how you treat padding.
         # Shape: ?
         # TODO: Your code here.
-        questionRepresent = (torch.sum(questionHidden, dim = 1) / questionWords.unsqueeze(1))
+        questionRepresent = (torch.sum(questionHidden, dim = 1) / questionLengths.unsqueeze(1))
 
         # Part 4: Combine the passage and question representations by
         # concatenating the passage and question representations with
