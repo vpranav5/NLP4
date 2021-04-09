@@ -240,8 +240,8 @@ class RNN(nn.Module):
         # TODO: Your code here.
         # set padding to 0 in question, question hidden gru can have hidden state for padding index that is not all 0
 
-        # element-wise product mask * hidden states of question,unsqueeze and add dimension to mask so it fits
-        questionProduct = question_mask.unsqueeze(-1) * questionHidden
+        # element-wise product mask * unpacked, unsorted question of question,unsqueeze and add dimension to mask so it fits
+        questionProduct = question_mask.unsqueeze(-1) * unsorted_question
 
         questionRepresent = (torch.sum(questionProduct, dim = 1) / questionLengths.unsqueeze(1))
 
