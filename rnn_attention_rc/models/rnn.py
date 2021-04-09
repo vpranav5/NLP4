@@ -202,7 +202,7 @@ class RNN(nn.Module):
         # 3.2. Pack the questions with pack_padded_sequence.
         # Hint: Make sure you have the proper value for batch_first.
         # TODO: Your code here.
-        packed_question = pack_padded_sequence(sorted_question, questionLengths.tolist(), batch_first = True)
+        packed_question = pack_padded_sequence(sorted_question, questionLengths, batch_first = True)
 
         # 3.3. Encode the questions with the RNN.
         # TODO: Your code here.
