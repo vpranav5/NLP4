@@ -170,7 +170,7 @@ class RNN(nn.Module):
         # TODO: Your code here.
         # method gives a tuple of outputs
         # (sorted passage, sorted passage lengths, restoration index)
-        sorted_passage, sorted_passage_lengths, passage_restoration = sort_batch_by_length(embedded_passage, passageLengths)
+        sorted_passage, sorted_passage_lengths, passage_restoration, _ = sort_batch_by_length(embedded_passage, passageLengths)
 
 
         # 2.2. Pack the passages with torch.nn.utils.rnn.pack_padded_sequence.
@@ -207,7 +207,7 @@ class RNN(nn.Module):
         #      of question_lengths.
         # Hint: allennlp.nn.util.sort_batch_by_length might be helpful.
         # TODO: Your code here.
-        sorted_question, sorted_question_lengths, question_restoration = sort_batch_by_length(embedded_question, questionLengths)
+        sorted_question, sorted_question_lengths, question_restoration, _ = sort_batch_by_length(embedded_question, questionLengths)
 
         # 3.2. Pack the questions with pack_padded_sequence.
         # Hint: Make sure you have the proper value for batch_first.
