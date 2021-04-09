@@ -168,14 +168,17 @@ class RNN(nn.Module):
         # 2.1. Sort embedded passages by decreasing order of passage_lengths.
         # Hint: allennlp.nn.util.sort_batch_by_length might be helpful.
         # TODO: Your code here.
-        sorted_passage = sort_batch_by_length(embedded_passage, passageLengths)
+        # method gives a tuple of outputs
+        # (sorted passage, sorted passage lengths, restoration index)
+        sorted_passage, sorted_passage_lengths, passage_restoration = sort_batch_by_length(embedded_passage, passageLengths)
+
 
         # 2.2. Pack the passages with torch.nn.utils.rnn.pack_padded_sequence.
         # Hint: Make sure you have the proper value for batch_first.
         # TODO: Your code here.
         # packing optimizes out the padding, removes out padding words from passages, look at stack overflow
         # packed_passage is a pytorch object which nests sequences, converts to 2-d matrix
-        packed_passage = pack_padded_sequence(sorted_passage, passageLengths, batch_first = True)
+        packed_passage = pack_padded_sequence(sorted_passage, sorted_passage_lengths, batch_first = True)
 
         # 2.3. Encode the packed passages with the RNN.
         # TODO: Your code here. (input), feeding in optimized passages thru the network nodes
@@ -188,6 +191,7 @@ class RNN(nn.Module):
         # Hint: Make sure you have the proper value for batch_first.
         # Shape: ?
         # TODO: Your code here.
+        # returns tuple again, variable, variable expands tuple 0, 1
         passage_unpacked, lens_unpacked = pad_packed_sequence(passageEncoding, batch_first=True)
 
         # 2.5. Unsort the unpacked, encoded passage to restore the
@@ -196,19 +200,19 @@ class RNN(nn.Module):
         # Shape: ?
         # TODO: Your code here.
         # Parameters: (input, dim to index along, original ordering)
-        unsorted_passage = torch.index_select(passage_unpacked, 0, passageLengths)
+        unsorted_passage = passage_unpacked.index_select(0, passage_restoration)
 
         # Part 3. Encode the embedded questions with the RNN.
         # 3.1. Sort the embedded questions by decreasing order
         #      of question_lengths.
         # Hint: allennlp.nn.util.sort_batch_by_length might be helpful.
         # TODO: Your code here.
-        sorted_question = sort_batch_by_length(embedded_question, questionLengths)
+        sorted_question, sorted_question_lengths, question_restoration = sort_batch_by_length(embedded_question, questionLengths)
 
         # 3.2. Pack the questions with pack_padded_sequence.
         # Hint: Make sure you have the proper value for batch_first.
         # TODO: Your code here.
-        packed_question = pack_padded_sequence(sorted_question, questionLengths, batch_first = True)
+        packed_question = pack_padded_sequence(sorted_question, sorted_question_lengths, batch_first = True)
 
         # 3.3. Encode the questions with the RNN.
         # TODO: Your code here.
@@ -228,13 +232,18 @@ class RNN(nn.Module):
         # Shape: ?
         # TODO: Your code here.
         # Unsort using questionLengths original ordering
-        unsorted_question = torch.index_select(question_unpacked, 0, questionLengths)
+        unsorted_question = question_unpacked.index_select(0, question_restoration)
 
         # 3.6. Take the average of the GRU hidden states.
         # Hint: Be careful how you treat padding.
         # Shape: ?
         # TODO: Your code here.
-        questionRepresent = (torch.sum(questionHidden, dim = 1) / questionLengths.unsqueeze(1))
+        # set padding to 0 in question, question hidden gru can have hidden state for padding index that is not all 0
+
+        # element-wise product mask * hidden states of question,unsqueeze and add dimension to mask so it fits
+        questionProduct = question_mask.unsqueeze(-1) * questionHidden
+
+        questionRepresent = (torch.sum(questionProduct, dim = 1) / questionLengths.unsqueeze(1))
 
         # Part 4: Combine the passage and question representations by
         # concatenating the passage and question representations with
@@ -244,9 +253,11 @@ class RNN(nn.Module):
         # amenable to concatenation
         # Shape: ?
         # TODO: Your code here.
+        #  questionEncoding (batchsize, max passage length, hidden size)
+        # expand depending on this size
 
         tiled_encoded_q = questionRepresent.unsqueeze(dim=1).expand_as(
-            embedded_passage)
+            unsorted_passage)
 
         # 4.2. Concatenate to make the combined representation.
         # Hint: Use torch.cat
@@ -254,8 +265,8 @@ class RNN(nn.Module):
         # TODO: Your code here.
 
         # Shape: (batch_size, max_passage_size, 6 * embedding_dim)
-        combined_x_q = torch.cat([embedded_passage, tiled_encoded_q,
-                                  embedded_passage * tiled_encoded_q], dim=-1)
+        combined_x_q = torch.cat([unsorted_passage, tiled_encoded_q,
+                                  unsorted_passage * tiled_encoded_q], dim=-1)
 
         # Part 5: Compute logits for answer start index.
 
