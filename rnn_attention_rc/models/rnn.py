@@ -38,6 +38,9 @@ class RNN(nn.Module):
         self.num_embedding_words = embedding_matrix.size(0)
         self.embedding_dim = embedding_matrix.size(1)
 
+        hidden_size = hidden_size // 2
+        # dividing by 2 using integer division, in python thats //
+
         # Create Embedding object
         # TODO: Your code here.
         self.embedding = nn.Embedding(self.num_embedding_words,
@@ -63,12 +66,12 @@ class RNN(nn.Module):
         # Affine transform for predicting start index.
         # TODO: Your code here.
         # Change shape here based on bidrectional gru, 6 * hidden size
-        self.start_output_projection = nn.Linear(6 * hidden_size, 1)
+        self.start_output_projection = nn.Linear(3 * hidden_size, 1)
         #self.start_output_projection = nn.Linear(3 * self.embedding_dim, 1)
 
         # Affine transform for predicting end index.
         # TODO: Your code here.
-        self.end_output_projection = nn.Linear(6 * hidden_size, 1)
+        self.end_output_projection = nn.Linear(3 * hidden_size, 1)
         #self.end_output_projection = nn.Linear(3 * self.embedding_dim, 1)
 
         # Dropout layer
@@ -141,13 +144,14 @@ class RNN(nn.Module):
         # in) each passage.
         # Shape: ?
         # TODO: Your code here.
-        passageLengths = passage_mask.sum(dim=1).long()
+        # keep as float tensor
+        passageLengths = passage_mask.sum(dim=1)
 
         # Make a LongTensor with the length (number non-padding words
         # in) each question.
         # Shape: ?
         # TODO: Your code here.
-        questionLengths = question_mask.sum(dim=1).long()
+        questionLengths = question_mask.sum(dim=1)
 
         # Part 1: Embed the passages and the questions.
         # 1.1. Embed the passage.
