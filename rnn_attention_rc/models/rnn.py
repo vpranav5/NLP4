@@ -38,7 +38,8 @@ class RNN(nn.Module):
         self.num_embedding_words = embedding_matrix.size(0)
         self.embedding_dim = embedding_matrix.size(1)
 
-        hidden_size = hidden_size // 2
+        # only change hidden size for gru, affine transformation should be for full hidden size
+        half_hidden = hidden_size // 2
         # dividing by 2 using integer division, in python thats //
 
         # Create Embedding object
@@ -54,12 +55,12 @@ class RNN(nn.Module):
 
         # Make a GRU to encode the passage. Note that batch_first=True.
         # TODO: Your code here.
-        self.gruPassage = nn.GRU(self.embedding_dim, hidden_size, batch_first = True, bidirectional = True, dropout = dropout)
+        self.gruPassage = nn.GRU(self.embedding_dim, half_hidden, batch_first = True, bidirectional = True, dropout = dropout)
         #self.gruPassage = nn.GRU(self.embedding_dim, hidden_size, batch_first = True, dropout = dropout)
 
         # Make a GRU to encode the question. Note that batch_first=True.
         # TODO: Your code here.
-        self.gruQuestion = nn.GRU(self.embedding_dim, hidden_size, batch_first = True, bidirectional = True, dropout = dropout)
+        self.gruQuestion = nn.GRU(self.embedding_dim, half_hidden, batch_first = True, bidirectional = True, dropout = dropout)
 
         #self.gruQuestion = nn.GRU(self.embedding_dim, hidden_size, batch_first = True, dropout = dropout)
 
