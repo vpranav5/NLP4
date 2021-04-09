@@ -104,75 +104,99 @@ class AttentionRNN(nn.Module):
         # Make a mask for the passage. Shape: ?
         # TODO: Your code here.
 
+        passage_mask = (passage != 0).type(
+            torch.cuda.FloatTensor if passage.is_cuda else
+            torch.FloatTensor)
+
         # Make a mask for the question. Shape: ?
         # TODO: Your code here.
+
+        question_mask = (question != 0).type(
+            torch.cuda.FloatTensor if question.is_cuda else
+            torch.FloatTensor)
+
 
         # Make a LongTensor with the length (number non-padding words
         # in) each passage.
         # Shape: ?
         # TODO: Your code here.
+        passageLengths = passage_mask.sum(dim=1).long()
 
         # Make a LongTensor with the length (number non-padding words
         # in) each question.
         # Shape: ?
         # TODO: Your code here.
+        questionLengths = question_mask.sum(dim=1).long()
 
         # Part 1: Embed the passages and the questions.
         # 1.1 Embed the passage.
         # TODO: Your code here.
         # Shape: ?
+        embedded_passage = self.embedding(passage)
 
         # 1.2. Embed the question.
         # TODO: Your code here.
         # Shape: ?
+        embedded_question = self.embedding(question)
 
         # Part 2. Encode the embedded passages with the RNN.
         # 2.1. Sort embedded passages by decreasing order of passage_lengths.
         # Hint: allennlp.nn.util.sort_batch_by_length might be helpful.
         # TODO: Your code here.
+        sorted_passage = sort_batch_by_length(embedded_passage, passageLengths)
 
         # 2.2. Pack the passages with torch.nn.utils.rnn.pack_padded_sequence.
         # Hint: Make sure you have the proper value for batch_first.
         # TODO: Your code here.
+        packed_passage = pack_padded_sequence(sorted_passage, passageLengths, batch_first = True)
 
         # 2.3. Encode the packed passages with the RNN.
         # TODO: Your code here.
+        passageEncoding, passageHidden = self.gruPassage(packed_passage)
 
         # 2.4. Unpack (pad) the passages with
         # torch.nn.utils.rnn.pad_packed_sequence.
         # Hint: Make sure you have the proper value for batch_first.
         # Shape: ?
         # TODO: Your code here.
+        passage_unpacked, lens_unpacked = pad_packed_sequence(passageEncoding, batch_first=True)
 
         # 2.5. Unsort the unpacked, encoded passage to restore the
         # initial ordering.
         # Hint: Look into torch.index_select or NumPy/PyTorch fancy indexing.
         # Shape: ?
         # TODO: Your code here.
+        unsorted_passage = torch.index_select(passage_unpacked, 0, passageLengths)
 
         # Part 3. Encode the embedded questions with the RNN.
         # 3.1. Sort the embedded questions by decreasing order
         #      of question_lengths.
         # Hint: allennlp.nn.util.sort_batch_by_length might be helpful.
         # TODO: Your code here.
+        sorted_question = sort_batch_by_length(embedded_question, questionLengths)
 
         # 3.2. Pack the questions with pack_padded_sequence.
         # Hint: Make sure you have the proper value for batch_first.
         # TODO: Your code here.
+        packed_question = pack_padded_sequence(sorted_question, questionLengths, batch_first = True)
 
         # 3.3. Encode the questions with the RNN.
         # TODO: Your code here.
+        questionEncoding, questionHidden = self.gruQuestion(packed_question)
 
         # 3.4. Unpack (pad) the questions with pad_packed_sequence.
         # Hint: Make sure you have the proper value for batch_first.
         # Shape: ?
         # TODO: Your code here.
+        question_unpacked, lens_unpacked = pad_packed_sequence(questionEncoding, batch_first = True)
 
         # 3.5. Unsort the unpacked, encoded question to restore the
         # initial ordering.
         # Hint: Look into torch.index_select or NumPy/PyTorch fancy indexing.
         # Shape: ?
         # TODO: Your code here.
+        unsorted_question = torch.index_select(question_unpacked, 0, questionLengths)
+
 
         # Part 4. Calculate attention weights and attend to question.
         # 4.1. Expand the encoded question to shape suitable for attention.
@@ -181,6 +205,10 @@ class AttentionRNN(nn.Module):
         # might be useful.
         # Shape: ?
         # TODO: Your code here.
+        questionRepresent = (torch.sum(questionHidden, dim = 1) / questionLengths.unsqueeze(1))
+
+
+
 
         # 4.2. Expand the encoded passage to shape suitable for attention.
         # Hint: Think carefully about what the shape of the attention

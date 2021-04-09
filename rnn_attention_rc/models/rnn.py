@@ -51,23 +51,25 @@ class RNN(nn.Module):
 
         # Make a GRU to encode the passage. Note that batch_first=True.
         # TODO: Your code here.
-        #self.gruPassage = nn.GRU(self.embedding_dim, hidden_size, batch_first = True, bidirectional = True, dropout = dropout)
-        self.gruPassage = nn.GRU(self.embedding_dim, hidden_size, batch_first = True, dropout = dropout)
+        self.gruPassage = nn.GRU(self.embedding_dim, hidden_size, batch_first = True, bidirectional = True, dropout = dropout)
+        #self.gruPassage = nn.GRU(self.embedding_dim, hidden_size, batch_first = True, dropout = dropout)
 
         # Make a GRU to encode the question. Note that batch_first=True.
         # TODO: Your code here.
-        #self.gruQuestion = nn.GRU(self.embedding_dim, hidden_size, batch_first = True, bidirectional = True, dropout = dropout)
+        self.gruQuestion = nn.GRU(self.embedding_dim, hidden_size, batch_first = True, bidirectional = True, dropout = dropout)
 
-        self.gruQuestion = nn.GRU(self.embedding_dim, hidden_size, batch_first = True, dropout = dropout)
+        #self.gruQuestion = nn.GRU(self.embedding_dim, hidden_size, batch_first = True, dropout = dropout)
 
         # Affine transform for predicting start index.
         # TODO: Your code here.
         # Change shape here based on bidrectional gru, 6 * hidden size
-        self.start_output_projection = nn.Linear(3 * self.embedding_dim, 1)
+        self.start_output_projection = nn.Linear(6 * hidden_size, 1)
+        #self.start_output_projection = nn.Linear(3 * self.embedding_dim, 1)
 
         # Affine transform for predicting end index.
         # TODO: Your code here.
-        self.end_output_projection = nn.Linear(3 * self.embedding_dim, 1)
+        self.end_output_projection = nn.Linear(6 * hidden_size, 1)
+        #self.end_output_projection = nn.Linear(3 * self.embedding_dim, 1)
 
         # Dropout layer
         # TODO: Your code here.
