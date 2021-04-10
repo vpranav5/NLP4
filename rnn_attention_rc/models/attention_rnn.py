@@ -1,7 +1,10 @@
 # This list of imports is likely incomplete --- add anything you need.
 # TODO: Your code here.
 import torch.nn as nn
+import rnn.py
 
+# Name: Pranav Varanasi
+# UT EID: ptv247
 
 class AttentionRNN(nn.Module):
     def __init__(self, embedding_matrix, hidden_size,
@@ -26,27 +29,49 @@ class AttentionRNN(nn.Module):
         self.init_arguments.pop("__class__")
         super(AttentionRNN, self).__init__()
 
+        self.embedding_matrix = embedding_matrix
+        self.num_embedding_words = embedding_matrix.size(0)
+        self.embedding_dim = embedding_matrix.size(1)
+
+        # only change hidden size for gru, affine transformation should be for full hidden size
+        # dividing by 2 using integer division, in python thats //
+        half_hidden = hidden_size // 2
+     
+
         # Create Embedding object
         # TODO: Your code here.
+        self.embedding = nn.Embedding(self.num_embedding_words,
+                                      self.embedding_dim, padding_idx=0)
 
         # Load our embedding matrix weights into the Embedding object,
         # and make them untrainable (requires_grad=False)
         # TODO: Your code here.
+        # Initialize embedding weights
+        self.embedding.weight = nn.Parameter(self.embedding_matrix,
+                                             requires_grad=False)
 
         # Make a RNN to encode the passage. Note that batch_first=True.
         # TODO: Your code here.
+        # Use GRU variant of RNN
+        self.gruPassage = nn.GRU(self.embedding_dim, half_hidden, batch_first = True, bidirectional = True, dropout = dropout)
 
         # Make a RNN to encode the question. Note that batch_first=True.
         # TODO: Your code here.
+        # Create GRU for question
+        self.gruQuestion = nn.GRU(self.embedding_dim, half_hidden, batch_first = True, bidirectional = True, dropout = dropout)
 
         # Affine transform for attention.
         # TODO: Your code here.
 
         # Affine transform for predicting start index.
         # TODO: Your code here.
+        # Apply affine transform with 3 * original hidden size
+        self.start_output_projection = nn.Linear(3 * hidden_size, 1)
 
         # Affine transform for predicting end index.
         # TODO: Your code here.
+        # Apply end affine transform with 3 * original hidden size
+        self.end_output_projection = nn.Linear(3 * hidden_size, 1)
 
         # Dropout layer
         # TODO: Your code here.
@@ -120,13 +145,17 @@ class AttentionRNN(nn.Module):
         # in) each passage.
         # Shape: ?
         # TODO: Your code here.
-        passageLengths = passage_mask.sum(dim=1).long()
+
+        # Sum along dim 1 to get length of non-padding words
+        passageLengths = passage_mask.sum(dim=1)
 
         # Make a LongTensor with the length (number non-padding words
         # in) each question.
         # Shape: ?
         # TODO: Your code here.
-        questionLengths = question_mask.sum(dim=1).long()
+        
+        # Sum along dim 1 to get length of non-padding words for questions
+        questionLengths = question_mask.sum(dim=1)
 
         # Part 1: Embed the passages and the questions.
         # 1.1 Embed the passage.
@@ -143,15 +172,21 @@ class AttentionRNN(nn.Module):
         # 2.1. Sort embedded passages by decreasing order of passage_lengths.
         # Hint: allennlp.nn.util.sort_batch_by_length might be helpful.
         # TODO: Your code here.
-        sorted_passage = sort_batch_by_length(embedded_passage, passageLengths)
+
+        # Sort training batch with allennlp function with passage and lengths as parameters
+        sorted_passage, sorted_passage_lengths, passage_restoration, _ = sort_batch_by_length(embedded_passage, passageLengths)
 
         # 2.2. Pack the passages with torch.nn.utils.rnn.pack_padded_sequence.
         # Hint: Make sure you have the proper value for batch_first.
         # TODO: Your code here.
-        packed_passage = pack_padded_sequence(sorted_passage, passageLengths, batch_first = True)
+
+        # pack sequence based on non-padding words
+        packed_passage = pack_padded_sequence(sorted_passage, sorted_passage_lengths, batch_first = True)
 
         # 2.3. Encode the packed passages with the RNN.
         # TODO: Your code here.
+
+        # get passage representation from GRU
         passageEncoding, passageHidden = self.gruPassage(packed_passage)
 
         # 2.4. Unpack (pad) the passages with
@@ -159,6 +194,8 @@ class AttentionRNN(nn.Module):
         # Hint: Make sure you have the proper value for batch_first.
         # Shape: ?
         # TODO: Your code here.
+
+        # Unpack sequence based on padding words
         passage_unpacked, lens_unpacked = pad_packed_sequence(passageEncoding, batch_first=True)
 
         # 2.5. Unsort the unpacked, encoded passage to restore the
@@ -166,28 +203,38 @@ class AttentionRNN(nn.Module):
         # Hint: Look into torch.index_select or NumPy/PyTorch fancy indexing.
         # Shape: ?
         # TODO: Your code here.
-        unsorted_passage = torch.index_select(passage_unpacked, 0, passageLengths)
+
+        # get unsorted passage using restoration indices
+        unsorted_passage = passage_unpacked.index_select(0, passage_restoration)
 
         # Part 3. Encode the embedded questions with the RNN.
         # 3.1. Sort the embedded questions by decreasing order
         #      of question_lengths.
         # Hint: allennlp.nn.util.sort_batch_by_length might be helpful.
         # TODO: Your code here.
-        sorted_question = sort_batch_by_length(embedded_question, questionLengths)
+
+        # Sort question batches
+        sorted_question, sorted_question_lengths, question_restoration, _ = sort_batch_by_length(embedded_question, questionLengths)
 
         # 3.2. Pack the questions with pack_padded_sequence.
         # Hint: Make sure you have the proper value for batch_first.
         # TODO: Your code here.
-        packed_question = pack_padded_sequence(sorted_question, questionLengths, batch_first = True)
+
+        # pack questions based on padding words
+        packed_question = pack_padded_sequence(sorted_question, sorted_question_lengths, batch_first = True)
 
         # 3.3. Encode the questions with the RNN.
         # TODO: Your code here.
+
+        # Get question representation from GRU
         questionEncoding, questionHidden = self.gruQuestion(packed_question)
 
         # 3.4. Unpack (pad) the questions with pad_packed_sequence.
         # Hint: Make sure you have the proper value for batch_first.
         # Shape: ?
         # TODO: Your code here.
+
+        # Unpack question representation based on padding words
         question_unpacked, lens_unpacked = pad_packed_sequence(questionEncoding, batch_first = True)
 
         # 3.5. Unsort the unpacked, encoded question to restore the
@@ -195,7 +242,9 @@ class AttentionRNN(nn.Module):
         # Hint: Look into torch.index_select or NumPy/PyTorch fancy indexing.
         # Shape: ?
         # TODO: Your code here.
-        unsorted_question = torch.index_select(question_unpacked, 0, questionLengths)
+
+        # restore original question ordering using restoration indices
+        unsorted_question = question_unpacked.index_select(0, question_restoration)
 
 
         # Part 4. Calculate attention weights and attend to question.
@@ -205,6 +254,9 @@ class AttentionRNN(nn.Module):
         # might be useful.
         # Shape: ?
         # TODO: Your code here.
+
+        # element-wise product mask * unpacked, unsorted question of question,unsqueeze and add dimension to mask so it fits
+        questionProduct = question_mask.unsqueeze(-1) * unsorted_question
 
         # use softmax to convert weights to probabilities, use those probabilites u multil=py questions by to get weighted average
 

@@ -9,7 +9,6 @@ from allennlp.nn.util import replace_masked_values, masked_log_softmax
 
 # Name: Pranav Varanasi
 # UT EID: ptv247
-# Changed RNN File
 
 class RNN(nn.Module):
     def __init__(self, embedding_matrix, hidden_size,
@@ -32,6 +31,7 @@ class RNN(nn.Module):
         # expected EM is 20%
         # rn hidden size is 768, try like powers of 2, dividing by 2, multiplying by 2,
         # and modify the epochs to get above ~20% EM score, check pdf at end, atleast 18% rm
+
         # Save the construction arguments, useful for serialization
         self.init_arguments = locals()
         self.init_arguments.pop("self")
@@ -43,8 +43,8 @@ class RNN(nn.Module):
         self.embedding_dim = embedding_matrix.size(1)
 
         # only change hidden size for gru, affine transformation should be for full hidden size
-        half_hidden = hidden_size // 2
         # dividing by 2 using integer division, in python thats //
+        half_hidden = hidden_size // 2
 
         # Create Embedding object
         # TODO: Your code here.
@@ -197,6 +197,7 @@ class RNN(nn.Module):
         # Shape: ?
         # TODO: Your code here.
         # returns tuple again, variable, variable expands tuple 0, 1
+        # extract unpadded passages
         passage_unpacked, lens_unpacked = pad_packed_sequence(passageEncoding, batch_first=True)
 
         # 2.5. Unsort the unpacked, encoded passage to restore the
@@ -212,11 +213,13 @@ class RNN(nn.Module):
         #      of question_lengths.
         # Hint: allennlp.nn.util.sort_batch_by_length might be helpful.
         # TODO: Your code here.
+        # Returns tuple of 4 arguments
         sorted_question, sorted_question_lengths, question_restoration, _ = sort_batch_by_length(embedded_question, questionLengths)
 
         # 3.2. Pack the questions with pack_padded_sequence.
         # Hint: Make sure you have the proper value for batch_first.
         # TODO: Your code here.
+        # Pack questioons based on padding
         packed_question = pack_padded_sequence(sorted_question, sorted_question_lengths, batch_first = True)
 
         # 3.3. Encode the questions with the RNN.
@@ -229,6 +232,7 @@ class RNN(nn.Module):
         # Hint: Make sure you have the proper value for batch_first.
         # Shape: ?
         # TODO: Your code here.
+        # extract unpadded questions
         question_unpacked, lens_unpacked = pad_packed_sequence(questionEncoding, batch_first = True)
 
         # 3.5. Unsort the unpacked, encoded question to restore the
@@ -236,6 +240,7 @@ class RNN(nn.Module):
         # Hint: Look into torch.index_select or NumPy/PyTorch fancy indexing.
         # Shape: ?
         # TODO: Your code here.
+
         # Unsort using questionLengths original ordering
         unsorted_question = question_unpacked.index_select(0, question_restoration)
 
@@ -248,6 +253,7 @@ class RNN(nn.Module):
         # element-wise product mask * unpacked, unsorted question of question,unsqueeze and add dimension to mask so it fits
         questionProduct = question_mask.unsqueeze(-1) * unsorted_question
 
+        # sum up non-padded elements of product and get average of gru states
         questionRepresent = (torch.sum(questionProduct, dim = 1) / questionLengths.unsqueeze(1))
 
         # Part 4: Combine the passage and question representations by
@@ -258,9 +264,9 @@ class RNN(nn.Module):
         # amenable to concatenation
         # Shape: ?
         # TODO: Your code here.
-        #  questionEncoding (batchsize, max passage length, hidden size)
-        # expand depending on this size
 
+        # questionEncoding (batchsize, max passage length, hidden size)
+        # expand depending on this size
         tiled_encoded_q = questionRepresent.unsqueeze(dim=1).expand_as(
             unsorted_passage)
 
@@ -270,6 +276,7 @@ class RNN(nn.Module):
         # TODO: Your code here.
 
         # Shape: (batch_size, max_passage_size, 6 * embedding_dim)
+        # concatenate with the expanded passage
         combined_x_q = torch.cat([unsorted_passage, tiled_encoded_q,
                                   unsorted_passage * tiled_encoded_q], dim=-1)
 
