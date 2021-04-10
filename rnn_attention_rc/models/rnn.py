@@ -28,6 +28,10 @@ class RNN(nn.Module):
         dropout: float
             The dropout rate.
         """
+
+        # expected EM is 20%
+        # rn hidden size is 768, try like powers of 2, dividing by 2, multiplying by 2,
+        # and modify the epochs to get above ~20% EM score, check pdf at end, atleast 18% rm
         # Save the construction arguments, useful for serialization
         self.init_arguments = locals()
         self.init_arguments.pop("self")

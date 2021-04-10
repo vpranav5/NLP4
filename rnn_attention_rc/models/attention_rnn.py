@@ -205,6 +205,12 @@ class AttentionRNN(nn.Module):
         # might be useful.
         # Shape: ?
         # TODO: Your code here.
+
+        # use softmax to convert weights to probabilities, use those probabilites u multil=py questions by to get weighted average
+
+        # you will have another affine transformation to get the weights from the passages, trainable parameter
+        # define another matrix for attention and multiply that by tensor to get logits, then do softmax from logits to get probability
+        # then computed weighted average from that probability
         questionRepresent = (torch.sum(questionHidden, dim = 1) / questionLengths.unsqueeze(1))
 
 
