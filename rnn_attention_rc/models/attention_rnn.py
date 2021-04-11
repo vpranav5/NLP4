@@ -248,24 +248,22 @@ class AttentionRNN(nn.Module):
 
 
         # Part 4. Calculate attention weights and attend to question.
+
+        # use softmax to convert weights to probabilities, use those probabilites u multiply questions by to get weighted average
+        # you will have another affine transformation to get the weights from the passages, trainable parameter
+        # define another matrix for attention and multiply that by tensor to get logits, then do softmax from logits to get probability
+        # then computed weighted average from that probability
+
         # 4.1. Expand the encoded question to shape suitable for attention.
         # Hint: Think carefully about what the shape of the attention
         # input vector should be. torch.unsqueeze and torch.expand
         # might be useful.
-        # Shape: ?
+        # Shape: (batch_size, passage_size, question_size, 2 * hidden)
+        # need to get question and passage shape the same
         # TODO: Your code here.
 
-        # element-wise product mask * unpacked, unsorted question of question,unsqueeze and add dimension to mask so it fits
-        questionProduct = question_mask.unsqueeze(-1) * unsorted_question
-
-        # use softmax to convert weights to probabilities, use those probabilites u multil=py questions by to get weighted average
-
-        # you will have another affine transformation to get the weights from the passages, trainable parameter
-        # define another matrix for attention and multiply that by tensor to get logits, then do softmax from logits to get probability
-        # then computed weighted average from that probability
-        questionRepresent = (torch.sum(questionHidden, dim = 1) / questionLengths.unsqueeze(1))
-
-
+        tiled_encoded_q = unsorted_question.unsqueeze(dim=1).expand_as(
+            unsorted_passage)
 
 
         # 4.2. Expand the encoded passage to shape suitable for attention.
@@ -275,18 +273,28 @@ class AttentionRNN(nn.Module):
         # Shape: ?
         # TODO: Your code here.
 
+        #tiled_encoded_passage = unsorted_passage.unsqueeze(dim=1).expand_as(
+           # )
+
+
         # 4.3. Build attention_input. This is the tensor passed through
         # the affine transform.
         # Hint: Think carefully what the shape of this tensor should be.
         # torch.cat might be useful.
         # Shape: ?
+
+        # attention_input is the concatenating of 4.1 and 4.2
+        # pass in attention input to affine transformatioon
+        # use affine_transform function and pass in the concatenated matrix
         # TODO: Your code here.
 
         # 4.4. Apply affine transform to attention input to get
         # attention logits. You will need to slightly reshape it
         # into a tensor of the shape you expect.
-        # Shape: ?
+        # Shape: 
         # TODO: Your code here.
+
+        # pass in logits to softmax
 
         # 4.5. Masked-softmax the attention logits over the last dimension
         # to normalize and make the attention logits a proper
@@ -300,6 +308,7 @@ class AttentionRNN(nn.Module):
         # passage word.
         # Hint: torch.bmm might be helpful.
         # Shape: ?
+        # use torch.bmm with question to add weights
         # TODO: Your code here.
 
         # Part 5: Combine the passage and question representations by
