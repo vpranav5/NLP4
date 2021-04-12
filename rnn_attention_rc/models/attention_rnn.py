@@ -305,7 +305,7 @@ class AttentionRNN(nn.Module):
         # TODO: Your code here.
 
         # apply affine transforms, reshape the last dimension
-        attention_logits = self.attention_tranform(attention_input).squeeze(-1)
+        attention_logits = self.attention_transform(attention_input).squeeze(-1)
 
         # 4.5. Masked-softmax the attention logits over the last dimension
         # to normalize and make the attention logits a proper
