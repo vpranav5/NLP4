@@ -1,7 +1,6 @@
 # This list of imports is likely incomplete --- add anything you need.
 # TODO: Your code here.
 import torch.nn as nn
-import rnn.py
 from allennlp.nn.util import masked_softmax
 
 # Name: Pranav Varanasi
