@@ -8,7 +8,7 @@ from allennlp.nn.util import sort_batch_by_length
 from allennlp.nn.util import replace_masked_values, masked_log_softmax
 
 # Name: Pranav Varanasi
-# UT EID: ptv247
+# UTEID: ptv247
 
 class RNN(nn.Module):
     def __init__(self, embedding_matrix, hidden_size,
@@ -38,6 +38,7 @@ class RNN(nn.Module):
         self.init_arguments.pop("__class__")
         super(RNN, self).__init__()
 
+        # Initiallize embedding matrix
         self.embedding_matrix = embedding_matrix
         self.num_embedding_words = embedding_matrix.size(0)
         self.embedding_dim = embedding_matrix.size(1)
@@ -59,29 +60,23 @@ class RNN(nn.Module):
 
         # Make a GRU to encode the passage. Note that batch_first=True.
         # TODO: Your code here.
+        # Use bidirectional GRU with boolean flag
         self.gruPassage = nn.GRU(self.embedding_dim, half_hidden, batch_first = True, bidirectional = True, dropout = dropout)
-        #self.gruPassage = nn.GRU(self.embedding_dim, hidden_size, batch_first = True, dropout = dropout)
 
         # Make a GRU to encode the question. Note that batch_first=True.
         # TODO: Your code here.
         self.gruQuestion = nn.GRU(self.embedding_dim, half_hidden, batch_first = True, bidirectional = True, dropout = dropout)
 
-        #self.gruQuestion = nn.GRU(self.embedding_dim, hidden_size, batch_first = True, dropout = dropout)
-
         # Affine transform for predicting start index.
         # TODO: Your code here.
-        # Change shape here based on bidrectional gru, 6 * hidden size
+        # Change shape here based on bidrectional gru and original hidden size, 3 * hidden_size
         self.start_output_projection = nn.Linear(3 * hidden_size, 1)
-        #self.start_output_projection = nn.Linear(3 * self.embedding_dim, 1)
-
+    
         # Affine transform for predicting end index.
         # TODO: Your code here.
-        self.end_output_projection = nn.Linear(3 * hidden_size, 1)
-        #self.end_output_projection = nn.Linear(3 * self.embedding_dim, 1)
 
-        # Dropout layer
-        # TODO: Your code here.
-        #self.dropout = nn.Dropout(p = dropout)
+        # initialize end projection
+        self.end_output_projection = nn.Linear(3 * hidden_size, 1)
 
         # Stores the number of gradient updates performed.
         self.global_step = 0
@@ -149,30 +144,38 @@ class RNN(nn.Module):
         # in) each passage.
         # Shape: ?
         # TODO: Your code here.
-        # keep as float tensor
+
+        # keep as float tensor for use in later methods 
         passageLengths = passage_mask.sum(dim=1)
 
         # Make a LongTensor with the length (number non-padding words
         # in) each question.
         # Shape: ?
         # TODO: Your code here.
+
+        # keep as float tensor by summing along mask dimension for non-padding words
         questionLengths = question_mask.sum(dim=1)
 
         # Part 1: Embed the passages and the questions.
         # 1.1. Embed the passage.
         # TODO: Your code here.
         # Shape: ?
+
+        # Get stored passage embedding
         embedded_passage = self.embedding(passage)
 
         # 1.2. Embed the question.
         # TODO: Your code here.
         # Shape: ?
+
+        # Get stored question embedding
         embedded_question = self.embedding(question)
 
         # Part 2. Encode the embedded passages with the RNN.
         # 2.1. Sort embedded passages by decreasing order of passage_lengths.
         # Hint: allennlp.nn.util.sort_batch_by_length might be helpful.
         # TODO: Your code here.
+
         # method gives a tuple of outputs
         # (sorted passage, sorted passage lengths, restoration index)
         sorted_passage, sorted_passage_lengths, passage_restoration, _ = sort_batch_by_length(embedded_passage, passageLengths)
@@ -181,12 +184,14 @@ class RNN(nn.Module):
         # 2.2. Pack the passages with torch.nn.utils.rnn.pack_padded_sequence.
         # Hint: Make sure you have the proper value for batch_first.
         # TODO: Your code here.
-        # packing optimizes out the padding, removes out padding words from passages, look at stack overflow
+
+        # packing optimizes out the padding, removes out padding words from passages
         # packed_passage is a pytorch object which nests sequences, converts to 2-d matrix
         packed_passage = pack_padded_sequence(sorted_passage, sorted_passage_lengths, batch_first = True)
 
         # 2.3. Encode the packed passages with the RNN.
         # TODO: Your code here. (input), feeding in optimized passages thru the network nodes
+
         # encoding is used to represent input within the neural network
         # output is a packed sequence
         passageEncoding, passageHidden = self.gruPassage(packed_passage)
@@ -196,8 +201,9 @@ class RNN(nn.Module):
         # Hint: Make sure you have the proper value for batch_first.
         # Shape: ?
         # TODO: Your code here.
+
         # returns tuple again, variable, variable expands tuple 0, 1
-        # extract unpadded passages
+        # extract unpadded passages from encoding
         passage_unpacked, lens_unpacked = pad_packed_sequence(passageEncoding, batch_first=True)
 
         # 2.5. Unsort the unpacked, encoded passage to restore the
@@ -205,7 +211,9 @@ class RNN(nn.Module):
         # Hint: Look into torch.index_select or NumPy/PyTorch fancy indexing.
         # Shape: ?
         # TODO: Your code here.
+
         # Parameters: (input, dim to index along, original ordering)
+        # use restoration indices to get original ordering for unpacked passages
         unsorted_passage = passage_unpacked.index_select(0, passage_restoration)
 
         # Part 3. Encode the embedded questions with the RNN.
@@ -213,17 +221,20 @@ class RNN(nn.Module):
         #      of question_lengths.
         # Hint: allennlp.nn.util.sort_batch_by_length might be helpful.
         # TODO: Your code here.
+
         # Returns tuple of 4 arguments
         sorted_question, sorted_question_lengths, question_restoration, _ = sort_batch_by_length(embedded_question, questionLengths)
 
         # 3.2. Pack the questions with pack_padded_sequence.
         # Hint: Make sure you have the proper value for batch_first.
         # TODO: Your code here.
-        # Pack questioons based on padding
+
+        # Pack questions based on padding
         packed_question = pack_padded_sequence(sorted_question, sorted_question_lengths, batch_first = True)
 
         # 3.3. Encode the questions with the RNN.
         # TODO: Your code here.
+
         # Encode with question bidirectional GRU
         # output is a packed sequence
         questionEncoding, questionHidden = self.gruQuestion(packed_question)
@@ -232,6 +243,7 @@ class RNN(nn.Module):
         # Hint: Make sure you have the proper value for batch_first.
         # Shape: ?
         # TODO: Your code here.
+
         # extract unpadded questions
         question_unpacked, lens_unpacked = pad_packed_sequence(questionEncoding, batch_first = True)
 
@@ -241,15 +253,15 @@ class RNN(nn.Module):
         # Shape: ?
         # TODO: Your code here.
 
-        # Unsort using questionLengths original ordering
+        # Unsort using question restoration original ordering
         unsorted_question = question_unpacked.index_select(0, question_restoration)
 
         # 3.6. Take the average of the GRU hidden states.
         # Hint: Be careful how you treat padding.
         # Shape: ?
         # TODO: Your code here.
-        # set padding to 0 in question, question hidden gru can have hidden state for padding index that is not all 0
 
+        # set padding to 0 in question, question hidden gru can have hidden state for padding index that is not all 0
         # element-wise product mask * unpacked, unsorted question of question,unsqueeze and add dimension to mask so it fits
         questionProduct = question_mask.unsqueeze(-1) * unsorted_question
 
@@ -262,7 +274,7 @@ class RNN(nn.Module):
 
         # 4.1. Reshape the question encoding to make it
         # amenable to concatenation
-        # Shape: ?
+        # Shape: (batchsize, max passage length, hidden size)
         # TODO: Your code here.
 
         # questionEncoding (batchsize, max passage length, hidden size)
@@ -272,11 +284,10 @@ class RNN(nn.Module):
 
         # 4.2. Concatenate to make the combined representation.
         # Hint: Use torch.cat
-        # Shape: ?
+        # Shape:  (batch_size, max_passage_size, 6 * embedding_dim)
         # TODO: Your code here.
 
-        # Shape: (batch_size, max_passage_size, 6 * embedding_dim)
-        # concatenate with the expanded passage
+        # concatenate the expanded passage and expanded questions as well as product over last dim
         combined_x_q = torch.cat([unsorted_passage, tiled_encoded_q,
                                   unsorted_passage * tiled_encoded_q], dim=-1)
 
@@ -287,6 +298,7 @@ class RNN(nn.Module):
         # Shape after editing shape: ?
         # TODO: Your code here.
 
+        # get start logits with output project, and reshape last column
         start_logits = self.start_output_projection(combined_x_q).squeeze(-1)
         
 

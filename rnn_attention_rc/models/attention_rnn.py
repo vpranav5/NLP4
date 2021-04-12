@@ -8,7 +8,7 @@ from allennlp.nn.util import sort_batch_by_length
 from allennlp.nn.util import replace_masked_values, masked_log_softmax
 
 # Name: Pranav Varanasi
-# UT EID: ptv247
+# UTEID: ptv247
 
 class AttentionRNN(nn.Module):
     def __init__(self, embedding_matrix, hidden_size,
@@ -41,7 +41,6 @@ class AttentionRNN(nn.Module):
         # dividing by 2 using integer division, in python thats //
         half_hidden = hidden_size // 2
      
-
         # Create Embedding object
         # TODO: Your code here.
         self.embedding = nn.Embedding(self.num_embedding_words,
@@ -50,36 +49,40 @@ class AttentionRNN(nn.Module):
         # Load our embedding matrix weights into the Embedding object,
         # and make them untrainable (requires_grad=False)
         # TODO: Your code here.
+
         # Initialize embedding weights
         self.embedding.weight = nn.Parameter(self.embedding_matrix,
                                              requires_grad=False)
 
         # Make a RNN to encode the passage. Note that batch_first=True.
         # TODO: Your code here.
-        # Use GRU variant of RNN
+
+        # Use bidirectional GRU variant of RNN
         self.gruPassage = nn.GRU(self.embedding_dim, half_hidden, batch_first = True, bidirectional = True, dropout = dropout)
 
         # Make a RNN to encode the question. Note that batch_first=True.
         # TODO: Your code here.
+
         # Create GRU for question
         self.gruQuestion = nn.GRU(self.embedding_dim, half_hidden, batch_first = True, bidirectional = True, dropout = dropout)
 
         # Affine transform for attention.
         # TODO: Your code here.
+
+        # Initialize attention layer with same dimensions as projections
         self.attention_transform = nn.Linear(3 * hidden_size, 1)
 
         # Affine transform for predicting start index.
         # TODO: Your code here.
+
         # Apply affine transform with 3 * original hidden size
         self.start_output_projection = nn.Linear(3 * hidden_size, 1)
 
         # Affine transform for predicting end index.
         # TODO: Your code here.
+
         # Apply end affine transform with 3 * original hidden size
         self.end_output_projection = nn.Linear(3 * hidden_size, 1)
-
-        # Dropout layer
-        # TODO: Your code here.
 
         # Stores the number of gradient updates performed.
         self.global_step = 0
@@ -151,7 +154,7 @@ class AttentionRNN(nn.Module):
         # Shape: ?
         # TODO: Your code here.
 
-        # Sum along dim 1 to get length of non-padding words
+        # Sum along dim 1 to get length of non-padding words for passage
         passageLengths = passage_mask.sum(dim=1)
 
         # Make a LongTensor with the length (number non-padding words
@@ -166,11 +169,15 @@ class AttentionRNN(nn.Module):
         # 1.1 Embed the passage.
         # TODO: Your code here.
         # Shape: ?
+
+        # Get passage embedding
         embedded_passage = self.embedding(passage)
 
         # 1.2. Embed the question.
         # TODO: Your code here.
         # Shape: ?
+
+        # Get question embedding
         embedded_question = self.embedding(question)
 
         # Part 2. Encode the embedded passages with the RNN.
@@ -254,8 +261,8 @@ class AttentionRNN(nn.Module):
 
         # Part 4. Calculate attention weights and attend to question.
 
-        # use softmax to convert weights to probabilities, use those probabilites u multiply questions by to get weighted average
-        # you will have another affine transformation to get the weights from the passages, trainable parameter
+        # use softmax to convert weights to probabilities, use those probabilites by multiplying questions to get weighted average
+        # another affine transformation to get the weights from the passages, trainable parameter
         # define another matrix for attention and multiply that by tensor to get logits, then do softmax from logits to get probability
         # then computed weighted average from that probability
 
@@ -270,8 +277,11 @@ class AttentionRNN(nn.Module):
         # Goal: (batch_size, passage_len, question_len, hidden_dim) (64, 15, 124, 512)
 
         # unsorted question shape is (batch_size, question_len, hidden_dim) (64, , 15 x 512)
-        # passage_mask.size(1) would get u max passage size for the mask
-        expanded_question = unsorted_question.unsqueeze(dim=1).expand(-1,passage_mask.size(1), -1, -1)
+        # passage_mask.size(1) gets max passage size for the mask
+        maxPassageSize = passage_mask.size(1)
+
+        # Use -1 index within expand to keep original dimensions same and only add passage dimension
+        expanded_question = unsorted_question.unsqueeze(dim=1).expand(-1, maxPassageSize, -1, -1)
 
         # 4.2. Expand the encoded passage to shape suitable for attention.
         # Hint: Think carefully about what the shape of the attention
@@ -280,8 +290,15 @@ class AttentionRNN(nn.Module):
         # Shape: ?
         # TODO: Your code here.
 
+        # Get max question size
+        maxQuestionSize = question_mask.size(1)
+
         # unsorted pasage shape is (batch_size, passage_len, hidden_dim) (64, 124, 512)
-        expanded_passage = unsorted_passage.unsqueeze(dim=2).expand(-1, -1, question_mask.size(1),-1)
+        # Add question dimension using expand and max question size
+
+        # Keep all other dimensions the same with -1 index
+        # Unsqueeze adds singleton dimension at place to insert new values
+        expanded_passage = unsorted_passage.unsqueeze(dim=2).expand(-1, -1, maxQuestionSize,-1)
 
 
         # 4.3. Build attention_input. This is the tensor passed through
@@ -291,10 +308,11 @@ class AttentionRNN(nn.Module):
         # Shape: ?
 
         # attention_input is the concatenating of 4.1 and 4.2
-        # pass in attention input to affine transformatioon
+        # pass in attention input to affine transformation
         # use affine_transform function and pass in the concatenated matrix
         # TODO: Your code here.
-        # concatenate along the last dimension
+
+        # concatenate along the last dimension -1 with expanded passages and questions
         attention_input = torch.cat([expanded_passage, expanded_question,
                                   expanded_passage * expanded_question], dim=-1)
 
@@ -304,7 +322,7 @@ class AttentionRNN(nn.Module):
         # Shape: 
         # TODO: Your code here.
 
-        # apply affine transforms, reshape the last dimension
+        # apply attention transform layer, reshape the last dimension to so logits works with mask
         attention_logits = self.attention_transform(attention_input).squeeze(-1)
 
         # 4.5. Masked-softmax the attention logits over the last dimension
@@ -314,7 +332,8 @@ class AttentionRNN(nn.Module):
         # Shape: ?
         # TODO: Your code here.
 
-        prob_dist = masked_softmax(attention_logits, question_mask, dim = -1)
+        # Get probabilty distribution from logits using softmax, default dim = -1 for last dimension
+        prob_dist = masked_softmax(attention_logits, question_mask)
 
         # 4.6. Use the attention weights to get a weighted average
         # of the RNN output from encoding the question for each
@@ -324,7 +343,8 @@ class AttentionRNN(nn.Module):
         # use torch.bmm with question to add weights
         # TODO: Your code here.
 
-        # compute weighted average using matrix product
+        # compute weighted average using matrix product with bmm
+        # Weighted average = P(event) * event 
         attentionWeights = torch.bmm(prob_dist, unsorted_question)
 
         # Part 5: Combine the passage and question representations by
@@ -335,6 +355,8 @@ class AttentionRNN(nn.Module):
         # Shape: ?
         # TODO: Your code here.
 
+        # Get combined representation using formula to add passage representation, weighted average, and element-wise product
+        # Concatenate over last dimension
         combinedRepresent = torch.cat([unsorted_passage, attentionWeights,
                                 unsorted_passage * attentionWeights], dim=-1)
 
@@ -345,6 +367,7 @@ class AttentionRNN(nn.Module):
         # Shape after editing shape: ?
         # TODO: Your code here.
 
+        # Get start projection using combined representation
         start_logits = self.start_output_projection(combinedRepresent).squeeze(-1)
 
         # 6.2. Replace the masked values so they have a very low score (-1e7).
