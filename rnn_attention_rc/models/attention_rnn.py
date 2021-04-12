@@ -3,6 +3,9 @@
 import torch
 import torch.nn as nn
 from allennlp.nn.util import masked_softmax
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from allennlp.nn.util import sort_batch_by_length
+from allennlp.nn.util import replace_masked_values, masked_log_softmax
 
 # Name: Pranav Varanasi
 # UT EID: ptv247
