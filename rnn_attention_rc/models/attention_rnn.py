@@ -2,6 +2,7 @@
 # TODO: Your code here.
 import torch.nn as nn
 import rnn.py
+from allennlp.nn.util import masked_softmax
 
 # Name: Pranav Varanasi
 # UT EID: ptv247
@@ -62,6 +63,7 @@ class AttentionRNN(nn.Module):
 
         # Affine transform for attention.
         # TODO: Your code here.
+        self.attention_transform = nn.Linear(3 * hidden_size, 1)
 
         # Affine transform for predicting start index.
         # TODO: Your code here.
@@ -258,13 +260,14 @@ class AttentionRNN(nn.Module):
         # Hint: Think carefully about what the shape of the attention
         # input vector should be. torch.unsqueeze and torch.expand
         # might be useful.
-        # Shape: (batch_size, passage_size, question_size, 2 * hidden)
+        # Shape: (batch_size, passage_len, question_len, hidden_dim) (64, 15, 124, 512)
         # need to get question and passage shape the same
         # TODO: Your code here.
 
-        tiled_encoded_q = unsorted_question.unsqueeze(dim=1).expand_as(
-            unsorted_passage)
+        # Goal: (batch_size, passage_len, question_len, hidden_dim) (64, 15, 124, 512)
 
+        # unsorted question shape is (batch_size, question_len, hidden_dim) (64, , 15 x 512)
+        expanded_question = unsorted_question.unsqueeze(dim=1).expand(passage_mask.size())
 
         # 4.2. Expand the encoded passage to shape suitable for attention.
         # Hint: Think carefully about what the shape of the attention
@@ -273,8 +276,8 @@ class AttentionRNN(nn.Module):
         # Shape: ?
         # TODO: Your code here.
 
-        #tiled_encoded_passage = unsorted_passage.unsqueeze(dim=1).expand_as(
-           # )
+        # unsorted pasage shape is (batch_size, passage_len, hidden_dim) (64, 124, 512)
+        expanded_passage = unsorted_passage.unsqueeze(dim=2).expand(question_mask.size())
 
 
         # 4.3. Build attention_input. This is the tensor passed through
@@ -287,6 +290,9 @@ class AttentionRNN(nn.Module):
         # pass in attention input to affine transformatioon
         # use affine_transform function and pass in the concatenated matrix
         # TODO: Your code here.
+        # concatenate along the last dimension
+        attention_input = torch.cat([expanded_passage, expanded_question,
+                                  expanded_passage * expanded_question], dim=-1)
 
         # 4.4. Apply affine transform to attention input to get
         # attention logits. You will need to slightly reshape it
@@ -294,7 +300,8 @@ class AttentionRNN(nn.Module):
         # Shape: 
         # TODO: Your code here.
 
-        # pass in logits to softmax
+        # apply affine transforms
+        attention_logits = self.attention_tranform(attention_input)
 
         # 4.5. Masked-softmax the attention logits over the last dimension
         # to normalize and make the attention logits a proper
@@ -302,6 +309,8 @@ class AttentionRNN(nn.Module):
         # Hint: allennlp.nn.util.last_dim_softmax might be helpful.
         # Shape: ?
         # TODO: Your code here.
+
+        prob_dist = masked_softmax(attention_logits, question_mask)
 
         # 4.6. Use the attention weights to get a weighted average
         # of the RNN output from encoding the question for each
@@ -311,6 +320,9 @@ class AttentionRNN(nn.Module):
         # use torch.bmm with question to add weights
         # TODO: Your code here.
 
+        # compute weighted average using matrix product
+        attentionWeights = torch.bmm(unsorted_question, prob_dist)
+
         # Part 5: Combine the passage and question representations by
         # concatenating the passage and question representations with
         # their product.
@@ -319,6 +331,9 @@ class AttentionRNN(nn.Module):
         # Shape: ?
         # TODO: Your code here.
 
+        combinedRepresent = torch.cat([unsorted_passage, attentionWeights,
+                                unsorted_passage * attentionWeights], dim=-1)
+
         # Part 6: Compute logits for answer start index.
 
         # 6.1. Apply the affine transformation, and edit the shape.
@@ -326,17 +341,24 @@ class AttentionRNN(nn.Module):
         # Shape after editing shape: ?
         # TODO: Your code here.
 
+        start_logits = self.start_output_projection(combinedRepresent).squeeze(-1)
+
         # 6.2. Replace the masked values so they have a very low score (-1e7).
         # This tensor is your start_logits.
         # Hint: allennlp.nn.util.replace_masked_values might be helpful.
         # Shape: ?
         # TODO: Your code here.
 
+        start_logits = replace_masked_values(start_logits, passage_mask, -1e7)
+
+
         # 6.3. Apply a padding-aware log-softmax to normalize.
         # This tensor is your softmax_start_logits.
         # Hint: allennlp.nn.util.masked_log_softmax might be helpful.
         # Shape: ?
         # TODO: Your code here.
+        
+        softmax_start_logits = masked_log_softmax(start_logits, passage_mask)
 
         # Part 7: Compute logits for answer end index.
 
@@ -345,11 +367,15 @@ class AttentionRNN(nn.Module):
         # Shape after editing shape: ?
         # TODO: Your code here.
 
+        end_logits = self.end_output_projection(combinedRepresent).squeeze(-1)
+
         # 7.2. Replace the masked values so they have a very low score (-1e7).
         # This tensor is your end_logits.
         # Hint: allennlp.nn.util.replace_masked_values might be helpful.
         # Shape: ?
         # TODO: Your code here.
+
+        end_logits = replace_masked_values(end_logits, passage_mask, -1e7)
 
         # 7.3. Apply a padding-aware log-softmax to normalize.
         # This tensor is your softmax_end_logits.
@@ -357,13 +383,15 @@ class AttentionRNN(nn.Module):
         # Shape: ?
         # TODO: Your code here.
 
+        softmax_end_logits = masked_log_softmax(end_logits, passage_mask)
+
         # Part 8: Output a dictionary with the start_logits, end_logits,
         # softmax_start_logits, softmax_end_logits.
         # TODO: Your code here. Remove the NotImplementedError below.
-        # return {
-        #     "start_logits":,
-        #     "end_logits":,
-        #     "softmax_start_logits":,
-        #     "softmax_end_logits":,
-        # }
-        raise NotImplementedError
+        
+        return {
+            "start_logits": start_logits,
+            "end_logits": end_logits,
+            "softmax_start_logits": softmax_start_logits,
+            "softmax_end_logits": softmax_end_logits
+        }
