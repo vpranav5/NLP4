@@ -266,7 +266,8 @@ class AttentionRNN(nn.Module):
         # Goal: (batch_size, passage_len, question_len, hidden_dim) (64, 15, 124, 512)
 
         # unsorted question shape is (batch_size, question_len, hidden_dim) (64, , 15 x 512)
-        expanded_question = unsorted_question.unsqueeze(dim=1).expand(passage_mask.size())
+        # passage_mask.size(1) would get u max passage size for the mask
+        expanded_question = unsorted_question.unsqueeze(dim=1).expand(-1,passage_mask.size(1), -1, -1)
 
         # 4.2. Expand the encoded passage to shape suitable for attention.
         # Hint: Think carefully about what the shape of the attention
@@ -276,7 +277,7 @@ class AttentionRNN(nn.Module):
         # TODO: Your code here.
 
         # unsorted pasage shape is (batch_size, passage_len, hidden_dim) (64, 124, 512)
-        expanded_passage = unsorted_passage.unsqueeze(dim=2).expand(question_mask.size())
+        expanded_passage = unsorted_passage.unsqueeze(dim=2).expand(-1, -1, question_mask.size(1),-1)
 
 
         # 4.3. Build attention_input. This is the tensor passed through
@@ -299,8 +300,8 @@ class AttentionRNN(nn.Module):
         # Shape: 
         # TODO: Your code here.
 
-        # apply affine transforms
-        attention_logits = self.attention_tranform(attention_input)
+        # apply affine transforms, reshape the last dimension
+        attention_logits = self.attention_tranform(attention_input).squeeze(-1)
 
         # 4.5. Masked-softmax the attention logits over the last dimension
         # to normalize and make the attention logits a proper
@@ -309,7 +310,7 @@ class AttentionRNN(nn.Module):
         # Shape: ?
         # TODO: Your code here.
 
-        prob_dist = masked_softmax(attention_logits, question_mask)
+        prob_dist = masked_softmax(attention_logits, question_mask, dim = -1)
 
         # 4.6. Use the attention weights to get a weighted average
         # of the RNN output from encoding the question for each
@@ -320,7 +321,7 @@ class AttentionRNN(nn.Module):
         # TODO: Your code here.
 
         # compute weighted average using matrix product
-        attentionWeights = torch.bmm(unsorted_question, prob_dist)
+        attentionWeights = torch.bmm(prob_dist, unsorted_question)
 
         # Part 5: Combine the passage and question representations by
         # concatenating the passage and question representations with
